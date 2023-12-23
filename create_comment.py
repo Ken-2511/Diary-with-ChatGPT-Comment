@@ -10,7 +10,7 @@ import json
 import count_token
 import math
 
-openai.api_key = os.environ.get("OPENAI_API_KEY")  # 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
+openai.api_key = os.environ.get("OPENAI_API_KEY")
 sys_prompt_dir = "sys_prompt.txt"
 diary_prompt_dir = "diary_prompt.txt"
 diary_dir = r"The\directory\of\your\diaries"
