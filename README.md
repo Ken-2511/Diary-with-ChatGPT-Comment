@@ -1,2 +1,2 @@
-# Diary-with-ChatGPT-s-comment
+# Diary-with-ChatGPT-comment
 Let ChatGPT be your friend, and comment your diaries.
