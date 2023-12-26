@@ -1,6 +1,6 @@
 import os
 
-diary_dir = r"The\directory\of\your\diaries"
+diary_dir = "../diaries"
 
 
 def diary_sort_key(dir_name):
