@@ -2,27 +2,35 @@
 # when run, it first goes through the directory to see if there is a file newly created
 # then request for chatGPT to add a comment
 
-import openai
 import os
-import win32api
-import win32con
 import json
-import count_token
 import math
+import time
+import count_token
+from openai import OpenAI
+from config import diary_dir, model
 
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 sys_prompt_dir = "sys_prompt.txt"
 diary_prompt_dir = "diary_prompt.txt"
-diary_dir = r"The\directory\of\your\diaries"
 current_diary_dir = ""
 need_comment = True
-model = "gpt-4-1106-preview"
+
 # 解释一下token_limit这个变量：
 # 每一次发送请求GPT给评价的时候，这个程序都会加载之前的一部分日记，好让GPT有上下文，能看懂当前的日记写的是什么。
 # 但是因为GPT一次性能看的消息的长度是有限的，比如GPT-4限制8192token。
 # 不过最近openai更新了，有一个叫gpt-4-1106-preview的模型支持128000token的输入，这意味着我们可以一次性把所有内容都丢给它。
 # 当然，因为这个是计费的，尽管不贵，但是如果每次都把所有日记丢给它，并且每天都请求评论的话，性价比可能就有点低了
 # 所以这个变量的意义就是限制GPT能看到的先前日记和当前日记的总量。
+
+# ENGLISH VERSION
+# Explain the variable `token_limit`
+# each time we request ChatGPT to comment, this program loads some of the previous diaries, to make ChatGPT has a context of what we the diary is talking about.
+# For example, the newest diary may contain some people's name or some event that happened several days ago.
+# ChatGPT will get a better understand of what the author is talking about.
+# Since ChatGPT has a "context window". GPT-3.5 has a context window of 4096 tokens, and GPT-4 has a context window 8192 tokens.
+# The total tokens of our request cannot exceed this limit. So we define `token limit` to make sure that it is within the limit.
+# Although the newest model `gpt-4-1106-preview` has a 128,000 tokens context window, it is too expensive to let them see all the diaries at once.
 token_limit = 8000
 
 
@@ -30,17 +38,15 @@ def make_comment(messages):
     """request ChatGPT to add a comment to my diary,
     and generate a comment file"""
     # request
-    response = openai.ChatCompletion.create(model=model, messages=messages)
-    content = response["choices"][0]["message"]["content"]
+    response = client.chat.completions.create(model=model, messages=messages)
+    content = response.choices[0].message.content
     # save the comment
     with open(os.path.join(current_diary_dir, "comment.txt"), "w", encoding="utf-8") as file:
         file.write(content)
-    # save the log
-    with open(os.path.join(current_diary_dir, "log.txt"), "w", encoding="utf-8") as file:
-        json.dump(response, file)
 
 
 def diary_sort_key(dir_name):
+    """Helper function. after loading the diaries, sort them"""
     nums = dir_name.split('-')
     return [int(n) for n in nums]
 
@@ -68,9 +74,8 @@ def get_relativity_score(text1: str, text2: str, length: int, index: int):
 
 def clip_messages(messages):
     """since the chatGPT has a maximum token limit,
-    we have to clip the messages to ensure that it is within 32k tokens
-    the language model should require 700 ~ 1000 tokens free for generating full response
-    so the limits is 8192-1000=7200"""
+    we have to clip the messages to ensure that it is within the context window.
+    Also, we should leave a ~800 token free space for GPT to generate their comment."""
     # get the relativity scores
     # rela_scores[i] == relativity score of messages[i-1]["content"]
     rela_scores = []
@@ -97,7 +102,7 @@ def load_messages():
     if there is a dir without comment, break"""
     def get_time_str(dir_name):
         y, mon, d, h, m, s = [int(i) for i in dir_name.split('-')]
-        return f"（{y}年{mon}月{d}日{h}时{m}分{s}秒）"
+        return f"(Date: {y}.{mon}.{d}, time: {h}:{m})"
     # load the system prompt
     with open(sys_prompt_dir, "r", encoding="utf-8") as file:
         content = file.read()
@@ -144,7 +149,10 @@ if __name__ == '__main__':
     print(f"num_tokens={count_token.num_tokens_from_messages(messages, model)}, model={model}")
     if need_comment:
         print("requesting for the response...")
+        t0 = time.time()
         make_comment(messages)
-        win32api.MessageBox(0, "Comment added.", "create comment", win32con.MB_OK)
+        t1 = time.time()
+        print(f"Comment added. Time cost: {int(t1 - t0)} sec. Please check it in `{diary_dir}`.")
     else:
-        win32api.MessageBox(0, "No comment has been added.", "create comment", win32con.MB_OK)
+        print("No comment has been added.")
+input("Press enter to continue...")
