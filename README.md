@@ -9,7 +9,7 @@ This project integrates ChatGPT with diary entries to provide AI-driven comments
 - **Text Analysis**: Utilize tools for token counting and word frequency to explore your writing patterns.
 
 ## Prerequisites
-- Python3
+- Python-3
 - OpenAI's GPT-3.5 (or newer) API key
 
 ## Setup
@@ -26,7 +26,7 @@ This project integrates ChatGPT with diary entries to provide AI-driven comments
    - Edit the `text_app` variable to set your default writing tool of your diary.
    - Edit the `model` variable to specify which branch of large language model to use.
 
-4. **Edit `sys_prompt.txt` and diary_prompt.txt**
+4. **Edit `sys_prompt.txt` and `diary_prompt.txt`**
    - `sys_prompt.txt` stores the message which will be shown in the very first line of the request, to give ChatGPT a background of you.
    - `diary_prompt.txt` stores the message which will be shown just before the your last diary in the request, to tell ChatGPT that they should comment only the last diary.
 
