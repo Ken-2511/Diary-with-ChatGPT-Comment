@@ -9,6 +9,8 @@ import time
 import count_token
 from openai import OpenAI
 from config import diary_dir, model
+import jieba
+import unicodedata
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 sys_prompt_dir = "sys_prompt.txt"
@@ -51,6 +53,26 @@ def diary_sort_key(dir_name):
     return [int(n) for n in nums]
 
 
+with open("meaningless_words.json", "r", encoding="utf-8") as file:
+  meaningless_words = json.load(file)["words"]
+
+
+def check_if_meaningless(word: str) -> bool:
+  if word in meaningless_words:
+    return True
+  if word in ["\n", " ", "\t", "\r"]:
+    return True
+  if all(unicodedata.category(char).startswith('P') for char in word):
+    return True
+  return False
+
+
+def filter_meaningless_words(word_list: list) -> None:
+  for word in word_list:
+    if check_if_meaningless(word):
+      word_list.remove(word)
+
+
 def get_relativity_score(text1: str, text2: str, length: int, index: int):
     """
     return the relativity between two texts.
@@ -62,9 +84,11 @@ def get_relativity_score(text1: str, text2: str, length: int, index: int):
         with greater length gets lower score
         with smaller index gets lower score
     """
+
     same_word_score = 1
-    for i in range(len(text1)-1):
-        word = text1[i:i+2]
+    text1_words = list(jieba.cut(text1))
+    filter_meaningless_words(text1_words)
+    for word in text1_words:
         same_word_score += text2.count(word)
     same_word_score = 2 * math.log(same_word_score)
     len_score = -0.7 * math.log(len(text2))
