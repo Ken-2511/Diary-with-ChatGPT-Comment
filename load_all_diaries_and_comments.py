@@ -30,6 +30,8 @@ def load_all():
         content += get_time_str(dir_name) + '\n'
         with open(os.path.join(diary_dir, dir_name, "diary.txt"), "r", encoding="utf-8") as file:
             content += remove_blank_lines(file.read())
+        if not os.path.exists(os.path.join(diary_dir, dir_name, "comment.txt")):
+            continue
         content += '\n\n'
         with open(os.path.join(diary_dir, dir_name, "comment.txt"), "r", encoding="utf-8") as file:
             content += remove_blank_lines(file.read())
