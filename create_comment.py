@@ -133,6 +133,8 @@ def load_messages():
     sys_prompt = [{"role": "system", "content": content}]
     # load the diaries
     diary_dirs = os.listdir(diary_dir)
+    # remove the files which does not follow the format `yyyy-mm-dd-hh-mm-ss`
+    diary_dirs = [dir_name for dir_name in diary_dirs if len(dir_name.split('-')) == 6]
     diary_dirs.sort(key=diary_sort_key, reverse=False)
     # load the time_strs
     diaries = []
