@@ -144,6 +144,7 @@ def load_messages():
         diary_name = os.path.join(diary_dir, dir_name, "diary.txt")  # load diary
         with open(diary_name, "r", encoding="utf-8") as file:
             content = get_time_str(dir_name)
+            content += "\n\n"
             content += file.read()
             diaries.append({"role": "user", "content": content})
         comment_name = os.path.join(diary_dir, dir_name, "comment.txt")  # load comment
@@ -165,7 +166,7 @@ def load_messages():
     with open("messages.txt", "w", encoding="utf-8") as file:
         for message in messages:
             file.write(message["content"])
-            file.write("\n\n")
+            file.write("\n\n\n")
     return messages
 
 
