@@ -8,9 +8,10 @@ import math
 import time
 import count_token
 from openai import OpenAI
-from config import diary_dir, model
+from config import diary_dir, model, token_limit
 import jieba
 import unicodedata
+import utils
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 sys_prompt_dir = "sys_prompt.txt"
@@ -18,59 +19,33 @@ diary_prompt_dir = "diary_prompt.txt"
 current_diary_dir = ""
 need_comment = True
 
-# 解释一下token_limit这个变量：
-# 每一次发送请求GPT给评价的时候，这个程序都会加载之前的一部分日记，好让GPT有上下文，能看懂当前的日记写的是什么。
-# 但是因为GPT一次性能看的消息的长度是有限的，比如GPT-4限制8192token。
-# 不过最近openai更新了，有一个叫gpt-4-1106-preview的模型支持128000token的输入，这意味着我们可以一次性把所有内容都丢给它。
-# 当然，因为这个是计费的，尽管不贵，但是如果每次都把所有日记丢给它，并且每天都请求评论的话，性价比可能就有点低了
-# 所以这个变量的意义就是限制GPT能看到的先前日记和当前日记的总量。
 
-# ENGLISH VERSION
-# Explain the variable `token_limit`
-# each time we request ChatGPT to comment, this program loads some of the previous diaries, to make ChatGPT has a context of what we the diary is talking about.
-# For example, the newest diary may contain some people's name or some event that happened several days ago.
-# ChatGPT will get a better understand of what the author is talking about.
-# Since ChatGPT has a "context window". GPT-3.5 has a context window of 4096 tokens, and GPT-4 has a context window 8192 tokens.
-# The total tokens of our request cannot exceed this limit. So we define `token limit` to make sure that it is within the limit.
-# Although the newest model `gpt-4-1106-preview` has a 128,000 tokens context window, it is too expensive to let them see all the diaries at once.
-token_limit = 7500
-
-
-def make_comment(messages):
-    """request ChatGPT to add a comment to my diary,
-    and generate a comment file"""
+def request_comment(messages) -> str:
+    """request ChatGPT to add a comment to my diary"""
     # request
     response = client.chat.completions.create(model=model, messages=messages)
     content = response.choices[0].message.content
-    # save the comment
-    with open(os.path.join(current_diary_dir, "comment.txt"), "w", encoding="utf-8") as file:
-        file.write(content)
-
-
-def diary_sort_key(dir_name):
-    """Helper function. after loading the diaries, sort them"""
-    nums = dir_name.split('-')
-    return [int(n) for n in nums]
+    return content
 
 
 with open("meaningless_words.json", "r", encoding="utf-8") as file:
-  meaningless_words = json.load(file)["words"]
+    meaningless_words = json.load(file)["words"]
 
 
 def check_if_meaningless(word: str) -> bool:
-  if word in meaningless_words:
-    return True
-  if word in ["\n", " ", "\t", "\r"]:
-    return True
-  if all(unicodedata.category(char).startswith('P') for char in word):
-    return True
-  return False
+    if word in meaningless_words:
+        return True
+    if word in ["\n", " ", "\t", "\r"]:
+        return True
+    if all(unicodedata.category(char).startswith('P') for char in word):
+        return True
+    return False
 
 
 def filter_meaningless_words(word_list: list) -> None:
-  for word in word_list:
-    if check_if_meaningless(word):
-      word_list.remove(word)
+    for word in word_list:
+        if check_if_meaningless(word):
+            word_list.remove(word)
 
 
 def get_relativity_score(text1: str, text2: str, length: int, index: int):
@@ -105,7 +80,7 @@ def clip_messages(messages):
     rela_scores = []
     text1 = messages[-1]["content"]
     length = len(messages)
-    for i in range(1, length-2):
+    for i in range(1, length - 2):
         score = get_relativity_score(text1, messages[i]["content"], length, i)
         rela_scores.append(score)
     # if num_tokens exceeds 7200, then clip, else don't clip
@@ -115,7 +90,21 @@ def clip_messages(messages):
         # the last one is needed diary
         choice = rela_scores.index(min(rela_scores))
         rela_scores.pop(choice)
-        messages.pop(choice+1)
+        messages.pop(choice + 1)
+
+
+def get_rela_scores(path) -> list:
+    """get the relativity scores of the diaries in the path
+    the last diary is the one to be compared with
+    return type: [[dir_name, relativity_score], ...]"""
+    diaries = utils.load_all_dir_names(path)
+    last_diary = diaries.pop(-1)
+    rela_scores = []
+    for diary in diaries:
+        content = utils.read_diary(os.path.join(path, diary))
+        score = get_relativity_score(content, utils.read_diary(os.path.join(path, last_diary)), len(diaries), diaries.index(diary))
+        rela_scores.append([diary, score])
+    return rela_scores
 
 
 def load_messages():
@@ -124,18 +113,17 @@ def load_messages():
     sort the directories in date
     and load the diaries and comments in the `messages`
     if there is a dir without comment, break"""
+
     def get_time_str(dir_name):
         y, mon, d, h, m, s = [int(i) for i in dir_name.split('-')]
         return f"(Date: {y}.{mon}.{d}, time: {h}:{m})"
+
     # load the system prompt
     with open(sys_prompt_dir, "r", encoding="utf-8") as file:
         content = file.read()
     sys_prompt = [{"role": "system", "content": content}]
     # load the diaries
-    diary_dirs = os.listdir(diary_dir)
-    # remove the files which does not follow the format `yyyy-mm-dd-hh-mm-ss`
-    diary_dirs = [dir_name for dir_name in diary_dirs if len(dir_name.split('-')) == 6]
-    diary_dirs.sort(key=diary_sort_key, reverse=False)
+    diary_dirs = utils.load_all_dir_names(diary_dir)
     # load the time_strs
     diaries = []
     for dir_name in diary_dirs:
@@ -177,7 +165,7 @@ if __name__ == '__main__':
     if need_comment:
         print("requesting for the response...")
         t0 = time.time()
-        make_comment(messages)
+        request_comment(messages)
         t1 = time.time()
         print(f"Comment added. Time cost: {int(t1 - t0)} sec. Please check it in `{diary_dir}`.")
     else:
