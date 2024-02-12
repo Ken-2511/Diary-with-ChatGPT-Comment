@@ -68,6 +68,11 @@ def read_comment(dir_name):
         return file.read()
 
 
+def check_comment(dir_name):
+    """check whether the comment exists"""
+    return os.path.exists(os.path.join(dir_name, "comment.txt"))
+
+
 def parse_meaningful_words(content: str):
     """use jieba to parse words
     remove the stop words (aka functional words, meaningless words)
