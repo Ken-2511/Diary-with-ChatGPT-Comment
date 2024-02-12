@@ -48,7 +48,7 @@ def filter_meaningless_words(word_list: list) -> None:
             word_list.remove(word)
 
 
-def get_relativity_score(text1: str, text2: str, length: int, index: int):
+def get_relativity_score(words1: str, words2: str) -> float:
     """
     return the relativity between two texts.
     text1 is today's diary, and text2 is a diary before.
@@ -59,12 +59,18 @@ def get_relativity_score(text1: str, text2: str, length: int, index: int):
         with greater length gets lower score
         with smaller index gets lower score
     """
-
-    same_word_score = 1
-    text1_words = list(jieba.cut(text1))
-    filter_meaningless_words(text1_words)
-    for word in text1_words:
-        same_word_score += text2.count(word)
+    # convert the words1 to list and convert the words2 to a dictionary
+    words1 = [line.split() for line in words1.split('\n')]
+    for word in words1:
+        word[1] = int(word[1])
+    words2 = [line.split() for line in words2.split('\n')]
+    for word in words2:
+        word[1] = int(word[1])
+    words2 = dict(words2)
+    # calculate the score
+    for word, count in words1:
+        if word in words2:
+            same_word_score += count * words2[word]
     same_word_score = 2 * math.log(same_word_score)
     len_score = -0.7 * math.log(len(text2))
     index_score = -1 * math.log(length - index)
@@ -99,10 +105,16 @@ def get_rela_scores(path) -> list:
     return type: [[dir_name, relativity_score], ...]"""
     diaries = utils.load_all_dir_names(path)
     last_diary = diaries.pop(-1)
+    # load the last diary's words statistics
+    with open(os.path.join(path, last_diary, "words.txt"), "r", encoding="utf-8") as file:
+        last_diary_words = file.read()
+    
     rela_scores = []
     for diary in diaries:
-        content = utils.read_diary(os.path.join(path, diary))
-        score = get_relativity_score(content, utils.read_diary(os.path.join(path, last_diary)), len(diaries), diaries.index(diary))
+        # load each diaries and calculate the score
+        with open(os.path.join(path, diary, "words.txt"), "r", encoding="utf-8") as file:
+            content_words = file.read()
+        score = get_relativity_score(content_words, last_diary_words)
         rela_scores.append([diary, score])
     return rela_scores
 
