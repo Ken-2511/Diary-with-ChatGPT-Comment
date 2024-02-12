@@ -1,6 +1,5 @@
 import os
-
-diary_dir = "../diaries"
+from config import diary_dir
 
 
 def diary_sort_key(dir_name):
@@ -10,7 +9,7 @@ def diary_sort_key(dir_name):
 
 def get_time_str(dir_name):
     y, mon, d, h, m, s = [int(i) for i in dir_name.split('-')]
-    return f"(date: {y}.{mon}.{d}, time: {h}.{m})"
+    return f"(date: {y}.{mon}.{d}, time: {h}:{m})"
 
 
 def remove_blank_lines(content: str):
@@ -25,6 +24,8 @@ def remove_blank_lines(content: str):
 def load_all():
     content = ""
     diary_list = os.listdir(diary_dir)
+    # remove the files which does not follow the format `yyyy-mm-dd-hh-mm-ss`
+    diary_list = [dir_name for dir_name in diary_list if len(dir_name.split('-')) == 6]
     diary_list.sort(key=diary_sort_key)
     for dir_name in diary_list:
         content += get_time_str(dir_name) + '\n'

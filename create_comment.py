@@ -33,7 +33,7 @@ need_comment = True
 # Since ChatGPT has a "context window". GPT-3.5 has a context window of 4096 tokens, and GPT-4 has a context window 8192 tokens.
 # The total tokens of our request cannot exceed this limit. So we define `token limit` to make sure that it is within the limit.
 # Although the newest model `gpt-4-1106-preview` has a 128,000 tokens context window, it is too expensive to let them see all the diaries at once.
-token_limit = 7200
+token_limit = 7500
 
 
 def make_comment(messages):
