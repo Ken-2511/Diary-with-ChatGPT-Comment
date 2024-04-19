@@ -121,8 +121,10 @@ def load_messages():
         content = file.read()
     sys_prompt = [{"role": "system", "content": content, "date": "None"}]
     # load the sorted diaries
+    print("loading diaries...")
     diary_dirs = utils.load_all_dir_names(diary_dir)
     # load the time_strs
+    print("adding to messages...")
     diaries = []
     for dir_name in diary_dirs:
         # for each dir, read the diary
@@ -144,7 +146,9 @@ def load_messages():
     diary_prompt = [{"role": "system", "content": content}]
     # compose the system prompt and the diaries
     messages = sys_prompt + diaries[:-1] + diary_prompt + diaries[-1:]
+    print("clipping messages...")
     clip_messages(messages)
+    print("regulating messages...")
     regulate_messages(messages)
     # save the messages
     with open("messages.txt", "w", encoding="utf-8") as file:
@@ -170,7 +174,10 @@ def save_comment(comment: str):
 
 if __name__ == '__main__':
     print("loading messages...")
+    t0 = time.time()
     messages = load_messages()
+    t1 = time.time()
+    print(f"Messages loaded. Time cost: {t1 - t0:.2f} sec.")
     print(f"num_tokens={count_token.num_tokens_from_messages(messages, model)}, model={model}")
     if need_comment:
         print("requesting for the response...")

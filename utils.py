@@ -109,6 +109,7 @@ def stat_meaningful_words(dir_name):
     word_list.sort(key=lambda x: x[1], reverse=True)
     with open(os.path.join(dir_name, "words.txt"), "w", encoding="utf-8") as file:
         for word, count in word_list:
+            word = word.lower()
             file.write(f"{word} {count}\n")
 
 
@@ -122,4 +123,4 @@ def update_all_meaningful_words(path, force=False):
 
 
 if __name__ == '__main__':
-    update_all_meaningful_words(config.diary_dir)
+    update_all_meaningful_words(config.diary_dir, force=True)

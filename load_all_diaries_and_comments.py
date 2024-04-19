@@ -1,3 +1,4 @@
+print("starting to load diaries...")
 import os
 from config import diary_dir
 import utils
@@ -12,6 +13,7 @@ def load_all():
     diary_list = utils.load_all_dir_names(diary_dir)
     with open("all_diaries_and_comments.txt", "w", encoding="utf-8") as file:
         for dir_name in diary_list:
+            print(f"loading {dir_name}")
             # for each dir, read the diary
             file.write(get_time_str(dir_name) + '\n')
             diary = utils.read_diary(os.path.join(diary_dir, dir_name))
