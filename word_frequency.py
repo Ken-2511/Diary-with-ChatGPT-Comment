@@ -1,12 +1,15 @@
 import os
+import config
 
-word_len = 5
+word_len = 3
 
 
 def load_all_diaries():
-    diary_dir = r"The\directory\of\your\diaries"
+    diary_dir = config.diary_dir
     all_content = ""
     for folder_name in os.listdir(diary_dir):
+        if folder_name.startswith("."):
+            continue
         file_name = os.path.join(diary_dir, folder_name, "diary.txt")
         with open(file_name, "r", encoding="utf-8") as file:
             content = file.read()
