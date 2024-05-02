@@ -1,7 +1,7 @@
 import os
 import config
 
-word_len = 3
+word_len = 5
 
 
 def load_all_diaries():

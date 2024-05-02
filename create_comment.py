@@ -1,5 +1,5 @@
-# this program is used to make comments in my diary
-# when run, it first goes through the directory to see if there is a file newly created
+# this program is for making comments in my diary
+# when running, it first goes through the directory to see if there is a file newly created
 # then request for chatGPT to add a comment
 
 import os
@@ -12,9 +12,9 @@ from config import diary_dir, model, token_limit
 import utils
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-sys_prompt_dir = "sys_prompt.txt"
-diary_prompt_dir = "diary_prompt.txt"
-current_diary_dir = ""
+SYS_PROMPT_NAME = "sys_prompt.txt"
+DIARY_PROMPT_NAME = "diary_prompt.txt"
+CURRENT_DIARY_DIR = ""  # This is for saving comment files
 need_comment = True
 
 
@@ -58,7 +58,7 @@ def clip_messages(messages):
     Also, we should leave a ~800 token free space for GPT to generate their comment."""
     # get the relativity scores
     scores = get_rela_scores(diary_dir)
-    scores.sort(key=lambda x:x[1], reverse=True)
+    scores.sort(key=lambda x: x[1], reverse=True)
     # if num_tokens exceeds 7200, then clip, else don't clip
     while count_token.num_tokens_from_messages(messages, model) > token_limit:
         # the first one is system prompt
@@ -117,7 +117,7 @@ def load_messages():
     and load the diaries and comments in the `messages`
     if there is a dir without comment, break"""
     # load the system prompt
-    with open(sys_prompt_dir, "r", encoding="utf-8") as file:
+    with open(SYS_PROMPT_NAME, "r", encoding="utf-8") as file:
         content = file.read()
     sys_prompt = [{"role": "system", "content": content, "date": "None"}]
     # load the sorted diaries
@@ -134,14 +134,14 @@ def load_messages():
         content += utils.read_diary(os.path.join(diary_dir, dir_name))
         diaries.append({"role": "user", "content": content, "date": dir_name})
         if not utils.check_comment(os.path.join(diary_dir, dir_name)):
-            global current_diary_dir
-            current_diary_dir = os.path.join(diary_dir, dir_name)
+            global CURRENT_DIARY_DIR
+            CURRENT_DIARY_DIR = os.path.join(diary_dir, dir_name)
             break
     else:
         global need_comment
         need_comment = False
     # load the diary prompt which we put it in the second last message
-    with open(diary_prompt_dir, "r", encoding="utf-8") as file:
+    with open(DIARY_PROMPT_NAME, "r", encoding="utf-8") as file:
         content = file.read()
     diary_prompt = [{"role": "system", "content": content}]
     # compose the system prompt and the diaries
@@ -167,7 +167,7 @@ def request_comment(messages) -> str:
 
 
 def save_comment(comment: str):
-    f_name = os.path.join(current_diary_dir, "comment.txt")
+    f_name = os.path.join(CURRENT_DIARY_DIR, "comment.txt")
     with open(f_name, "w", encoding="utf-8") as file:
         file.write(comment)
 
@@ -185,7 +185,7 @@ if __name__ == '__main__':
         comment = request_comment(messages)
         save_comment(comment)
         t1 = time.time()
-        print(f"Comment added. Time cost: {int(t1 - t0)} sec. Please check it in `{current_diary_dir}`.")
+        print(f"Comment added. Time cost: {int(t1 - t0)} sec. Please check it in `{CURRENT_DIARY_DIR}`.")
     else:
         print("No comment has been added.")
     input("Press enter to continue...")

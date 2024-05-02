@@ -2,7 +2,8 @@
   "files.associations": {
     "string.h": "c",
     "stdio.h": "c",
-    "iostream": "cpp"
+    "iostream": "cpp",
+    "dirent.h": "c"
   },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",

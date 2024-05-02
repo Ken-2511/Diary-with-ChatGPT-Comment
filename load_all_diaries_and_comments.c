@@ -2,13 +2,15 @@
 #include <string.h>
 #include <dirent.h>
 
-char *read_single_file(char *dir, char *f_name)
+#define DIR_PATH "C:/Users/IWMAI/OneDrive/Personal-Diaries/"
+
+char *read_single_file(char *dir_name, char *file_name)
 {
     // load file name
     char df_name[256];
-    strcpy(df_name, "/home/iwmain/Documents/diaries/");
-    strcat(df_name, dir);
-    strcat(df_name, f_name);
+    strcpy(df_name, DIR_PATH);
+    strcat(df_name, dir_name);
+    strcat(df_name, file_name);
     // Read the content
     static char ans[8192];
     memset(ans, 0, sizeof(ans));
@@ -22,7 +24,7 @@ char *read_single_file(char *dir, char *f_name)
     char s[100];
     while (1)
     {
-        fscanf(fp, "%99s", &s);
+        fscanf(fp, "%99s", s);
         strcat(ans, s);
         if (feof(fp))
             break;
@@ -33,10 +35,9 @@ char *read_single_file(char *dir, char *f_name)
 int main()
 /*Write all the diaries and comments into a single file*/
 {
-
     DIR *d;
     struct dirent *dir;
-    d = opendir("/home/iwmain/Documents/diaries/"); // Opens the current directory
+    d = opendir(DIR_PATH); // Opens the current directory
     FILE *fp;
     fp = fopen("test.txt", "w");
 
@@ -45,9 +46,14 @@ int main()
         while ((dir = readdir(d)) != NULL)
         {
             fprintf(fp, "%s\n", read_single_file(dir->d_name, "/diary.txt"));
+            // we do not guarantee that there is a comment file for each diary
+            if (read_single_file(dir->d_name, "/comment.txt")[0] != '\0') continue;
             fprintf(fp, "%s\n\n", read_single_file(dir->d_name, "/comment.txt"));
         }
         closedir(d);
+    } else {
+        printf("Failed to open directory\n");
+        return -1;
     }
     fclose(fp);
 
