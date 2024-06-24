@@ -10,6 +10,7 @@ import count_token
 from openai import OpenAI
 from config import diary_dir, model, token_limit
 import utils
+import encryption
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 SYS_PROMPT_NAME = "sys_prompt.txt"
@@ -172,7 +173,23 @@ def save_comment(comment: str):
         file.write(comment)
 
 
+def encrypt_last_diary():
+    """encrypt the last diary"""
+    # get the path of the last diary
+    diary_dir = utils.load_all_dir_names(diary_dir)[-1]
+    diary_path = os.path.join(diary_dir, "diary.txt")
+    # read the diary
+    content = utils.read_diary(diary_path)
+    # encrypt the diary
+    encrypted_content = encryption.encrypt_secret_recursive(content)
+    # save the encrypted diary
+    with open(diary_path, "w", encoding="utf-8") as file:
+        file.write(encrypted_content)
+
+
 if __name__ == '__main__':
+    print("encrypting the last diary...")
+    encrypt_last_diary()
     print("loading messages...")
     t0 = time.time()
     messages = load_messages()
