@@ -1,8 +1,10 @@
 """This file stores some useful functions that are used in multiple files."""
 
 import os
+import re
 import jieba
 import config
+import base64
 import unicodedata
 
 
@@ -122,5 +124,52 @@ def update_all_meaningful_words(path, force=False):
         stat_meaningful_words(os.path.join(path, dir_name))
 
 
+def encrypt(text, key):
+    """xor encrypt the text"""
+    key = key.encode("utf-8")
+    key_len = len(key)
+    text = text.encode("utf-8")
+    result = bytearray()
+    for i in range(len(text)):
+        result.append(text[i] ^ key[i % key_len])
+    return base64.b64encode(result).decode("utf-8")
+
+
+def decrypt(text, key):
+    """xor decrypt the text"""
+    key = key.encode("utf-8")
+    key_len = len(key)
+    text = base64.b64decode(text.encode("utf-8"))
+    result = bytearray()
+    for i in range(len(text)):
+        result.append(text[i] ^ key[i % key_len])
+    return result.decode("utf-8")
+
+
+def process_secrets(text, mode):
+    # use regex to match the secrets
+    pattern = r'<secret>(.*?)</secret>'
+    with open("encrypt_key", "r", encoding="utf-8") as file:
+        key = file.read()
+    
+    def repl(match):
+        if mode == "encrypt":
+            return f"<secret>{encrypt(match.group(1), key)}</secret>"
+        elif mode == "decrypt":
+            return f"<secret>{decrypt(match.group(1), key)}</secret>"
+        else:
+            raise ValueError(f"mode {mode} is not supported")
+        
+    
+    return re.sub(pattern, repl, text, flags=re.DOTALL)
+
+
 if __name__ == '__main__':
-    update_all_meaningful_words(config.diary_dir, force=True)
+    with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-06-24-16-31-00\diary.txt", "r", encoding="utf-8") as file:
+    # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-07-12-14-33-15\diary.txt", "r", encoding="utf-8") as file:
+        content = file.read()
+    content = process_secrets(content, "encrypt")
+    # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-06-24-16-31-00\diary.txt", "w", encoding="utf-8") as file:
+    # # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-07-12-14-33-15\diary.txt", "w", encoding="utf-8") as file:
+    #     file.write(content)
+    print(content)

@@ -10,7 +10,6 @@ import count_token
 from openai import OpenAI
 from config import diary_dir, model, token_limit
 import utils
-import encryption
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 SYS_PROMPT_NAME = "sys_prompt.txt"
@@ -133,6 +132,7 @@ def load_messages():
         diary_name = os.path.join(diary_dir, dir_name, "diary.txt")  # load diary
         content = get_time_str(dir_name) + "\n\n"
         content += utils.read_diary(os.path.join(diary_dir, dir_name))
+        content = utils.process_secrets(content, "decrypt")
         diaries.append({"role": "user", "content": content, "date": dir_name})
         if not utils.check_comment(os.path.join(diary_dir, dir_name)):
             global CURRENT_DIARY_DIR
@@ -176,12 +176,13 @@ def save_comment(comment: str):
 def encrypt_last_diary():
     """encrypt the last diary"""
     # get the path of the last diary
-    diary_dir = utils.load_all_dir_names(diary_dir)[-1]
-    diary_path = os.path.join(diary_dir, "diary.txt")
+    diary_path = utils.load_all_dir_names(diary_dir)[-1]
+    diary_path = os.path.join(diary_dir, diary_path, "diary.txt")
     # read the diary
-    content = utils.read_diary(diary_path)
+    with open(diary_path, "r", encoding="utf-8") as file:
+        content = file.read()
     # encrypt the diary
-    encrypted_content = encryption.encrypt_secret_recursive(content)
+    encrypted_content = utils.process_secrets(content, "encrypt")
     # save the encrypted diary
     with open(diary_path, "w", encoding="utf-8") as file:
         file.write(encrypted_content)
