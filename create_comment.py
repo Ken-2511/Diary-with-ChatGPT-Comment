@@ -5,11 +5,17 @@
 import os
 import math
 import time
+import json
 import datetime
+
+from isort.profiles import pycharm
+
 import count_token
+import numpy as np
 from openai import OpenAI
 from config import diary_dir, model, token_limit, api_key
 import utils
+from utils import check_comment
 
 client = OpenAI(api_key=api_key)
 SYS_PROMPT_NAME = "sys_prompt.txt"
@@ -36,7 +42,7 @@ def get_same_word_score(words1: str, words2: str) -> float:
     return same_word_score
 
 
-def get_length_score(diary_dir: str):
+def get_length_score(diary_dir):
     content = utils.read_diary(diary_dir)
     length = len(content) + 1
     return length
@@ -52,12 +58,13 @@ def get_date_score(last_diary_dir, current_diary_dir):
     return days
 
 
-def clip_messages(messages):
+def _clip_messages(messages):
+    # deprecated
     """since the chatGPT has a maximum token limit,
     we have to clip the messages to ensure that it is within the context window.
     Also, we should leave a ~800 token free space for GPT to generate their comment."""
     # get the relativity scores
-    scores = get_rela_scores(diary_dir)
+    scores = _get_rela_scores(diary_dir)
     scores.sort(key=lambda x: x[1], reverse=True)
     # if num_tokens exceeds 7200, then clip, else don't clip
     while count_token.num_tokens_from_messages(messages, model) > token_limit:
@@ -74,11 +81,27 @@ def clip_messages(messages):
             assert False
 
 
-def get_rela_scores(path) -> list:
+def clip_diaries(diaries):
+    """make the num of token of the diaries less than the token limit
+    note that it is only the rough estimate, and the actual token num will be a little bit larger"""
+    # sort the diaries by the relativity score
+    diaries.sort(key=lambda x: x["relativity_score"], reverse=True)
+    new_diaries = []
+    for i in range(len(diaries)):
+        new_diaries.append(diaries[i])
+        if count_token.num_tokens_from_diaries(new_diaries) > token_limit:
+            break
+    # sort the diaries by the date
+    new_diaries.sort(key=lambda x: utils.dir_sort_key(x["dir_name"]))
+    return new_diaries
+
+
+def _get_rela_scores(path) -> list:
+    # deprecated
     """get the relativity scores of the diaries in the path
     the last diary is the one to be compared with
     return type: [[dir_name, relativity_score], ...]"""
-    utils.update_all_meaningful_words(diary_dir)
+    utils._update_all_meaningful_words(diary_dir)
     diaries = utils.load_all_dir_names(path)
     last_diary = diaries.pop(-1)
     # load the last diary's words statistics
@@ -91,11 +114,46 @@ def get_rela_scores(path) -> list:
             content_words = file.read()
         sw_score = 0.5 * get_same_word_score(content_words, last_diary_words)
         # noinspection PyTypeChecker
-        l_score = -1 * math.pow(get_length_score(os.path.join(diary_dir, diary)), 0.5)
+        l_score = -1 * math.pow(get_length_score(diary["dir_name"]), 0.5)
         d_score = -1 * math.pow(get_date_score(last_diary, diary), 0.8)
         total_score = sw_score + l_score + d_score
         rela_scores.append([diary, total_score])
     return rela_scores
+
+
+def get_content_rela_scores(path) -> tuple:
+    """get the content and the relativity scores of the diaries in the path
+    the last diary is the one to be compared with
+    return type: ([{"dir_name": str,
+                    "relativity_score": float,
+                    "content": str}, ...],  <- all diaries
+                    {"dir_name": str, "content": str})  <- last diary"""
+    utils.update_all_vectors(path)
+    # load diary names
+    diary_names = utils.load_all_dir_names(path)
+    diaries = [{"dir_name": diary_n} for diary_n in diary_names]
+    # load diary contents
+    for diary in diaries:
+        content = utils.read_diary(os.path.join(path, diary["dir_name"]))
+        content = utils.process_secrets(content, "decrypt")
+        diary["content"] = content
+    # load the diary vectors
+    for diary in diaries:
+        diary["vector"] = np.load(os.path.join(path, diary["dir_name"], "vec.npy"))
+    # get the last diary
+    last_diary = diaries.pop(-1)
+    # start to calculate all the relativity scores
+    for diary in diaries:
+        v_score = -20 * math.log2(utils.get_distance(last_diary["vector"], diary["vector"] + 1e-9))
+        l_score = -1 * math.pow(get_length_score(os.path.join(diary_dir, diary["dir_name"])), 0.3)
+        d_score = -1 * math.pow(get_date_score(last_diary["dir_name"], diary["dir_name"]), 0.5)
+        total_score = v_score + l_score + d_score
+        diary["relativity_score"] = total_score
+    # get the time_strs
+    for diary in diaries:
+        diary["time_str"] = get_time_str(diary["dir_name"])
+        diary["content"] = diary["time_str"] + "\n\n" + diary["content"]
+    return diaries, last_diary
 
 
 def regulate_messages(messages):
@@ -116,46 +174,47 @@ def load_messages():
     sort the directories in date
     and load the diaries and comments in the `messages`
     if there is a dir without comment, break"""
+    # load the sorted diaries
+    print("loading diaries...")
+    diaries, last_diary = get_content_rela_scores(diary_dir)
+
+    # clip the diaries
+    diaries = clip_diaries(diaries)
+
+    messages = []
+    for diary in diaries:
+        messages.append({"role": "user", "content": diary["content"]})
+
+    # globals
+    global CURRENT_DIARY_DIR
+    CURRENT_DIARY_DIR = os.path.join(diary_dir, last_diary["dir_name"])
+
+    # compose the system prompt and the diaries
     # load the system prompt
     with open(SYS_PROMPT_NAME, "r", encoding="utf-8") as file:
         content = file.read()
     sys_prompt = [{"role": "system", "content": content, "date": "None"}]
-    # load the sorted diaries
-    print("loading diaries...")
-    diary_dirs = utils.load_all_dir_names(diary_dir)
-    # load the time_strs
-    print("adding to messages...")
-    diaries = []
-    for dir_name in diary_dirs:
-        # for each dir, read the diary
-        # if there is no `comment.txt` in a dir, then break and request for comment
-        diary_name = os.path.join(diary_dir, dir_name, "diary.txt")  # load diary
-        content = get_time_str(dir_name) + "\n\n"
-        content += utils.read_diary(os.path.join(diary_dir, dir_name))
-        content = utils.process_secrets(content, "decrypt")
-        diaries.append({"role": "user", "content": content, "date": dir_name})
-        if not utils.check_comment(os.path.join(diary_dir, dir_name)):
-            global CURRENT_DIARY_DIR
-            CURRENT_DIARY_DIR = os.path.join(diary_dir, dir_name)
-            break
-    else:
-        global need_comment
-        need_comment = False
-    # load the diary prompt which we put it in the second last message
+    # load the diary prompt
     with open(DIARY_PROMPT_NAME, "r", encoding="utf-8") as file:
         content = file.read()
     diary_prompt = [{"role": "system", "content": content}]
-    # compose the system prompt and the diaries
-    messages = sys_prompt + diaries[:-1] + diary_prompt + diaries[-1:]
-    print("clipping messages...")
-    clip_messages(messages)
-    print("regulating messages...")
-    regulate_messages(messages)
+    # load the last diary
+    last_diary_prompt = [{"role": "user", "content": last_diary["content"]}]
+    messages = sys_prompt + messages + diary_prompt + last_diary_prompt
+
     # save the messages
     with open("messages.txt", "w", encoding="utf-8") as file:
-        for message in messages:
-            file.write(message["content"])
-            file.write("\n\n\n")
+        # noinspection PyTypeChecker
+        json.dump(messages, file, ensure_ascii=False, indent=4)
+        # for message in messages:
+        #     file.write(message["content"])
+        #     file.write("\n\n\n")
+
+    # if the last diary has a comment, then we don't need to request for a comment
+    if check_comment(os.path.join(diary_dir, last_diary["dir_name"])):
+        global need_comment
+        need_comment = False
+
     return messages
 
 
@@ -196,12 +255,12 @@ if __name__ == '__main__':
     messages = load_messages()
     t1 = time.time()
     print(f"Messages loaded. Time cost: {t1 - t0:.2f} sec.")
-    print(f"num_tokens={count_token.num_tokens_from_messages(messages, model)}, model={model}")
+    print(f"num_tokens={count_token.num_tokens_from_messages(messages)}, model={model}")
     if need_comment:
         print("requesting for the response...")
         t0 = time.time()
-        comment = request_comment(messages)
-        save_comment(comment)
+        # comment = request_comment(messages)
+        # save_comment(comment)
         t1 = time.time()
         print(f"Comment added. Time cost: {int(t1 - t0)} sec. Please check it in `{CURRENT_DIARY_DIR}`.")
     else:

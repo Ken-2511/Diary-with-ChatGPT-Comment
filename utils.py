@@ -3,9 +3,11 @@
 import os
 import re
 import jieba
+import openai
 import config
 import base64
 import unicodedata
+import numpy as np
 
 
 def delete_dir(dir_path):
@@ -42,6 +44,11 @@ def load_all_dir_names(path):
         if len(dir_name.split('-')) != 6:
             continue
         dir_names.append(dir_name)
+        # stop at when the dir has no comment, mean that the last dir has no comment
+        # actually there is a chance that the last dir has a comment
+        # it is when all the diaries have comments
+        if not check_comment(os.path.join(path, dir_name)):
+            break
     dir_names.sort(key=dir_sort_key)
     return dir_names
 
@@ -101,7 +108,8 @@ def parse_meaningful_words(content: str):
     return meaningful_words
 
 
-def stat_meaningful_words(dir_name):
+def _stat_meaningful_words(dir_name):
+    # deprecated
     """stat the meaningful words in the diary
     and save the result into a file"""
     content = read_diary(dir_name)
@@ -115,13 +123,14 @@ def stat_meaningful_words(dir_name):
             file.write(f"{word} {count}\n")
 
 
-def update_all_meaningful_words(path, force=False):
+def _update_all_meaningful_words(path, force=False):
+    # deprecated
     """update all the meaningful words in the diaries
     force means whether to update the diaries that have already been updated"""
     for dir_name in load_all_dir_names(path):
         if os.path.exists(os.path.join(path, dir_name, "words.txt")) and not force:
             continue
-        stat_meaningful_words(os.path.join(path, dir_name))
+        _stat_meaningful_words(os.path.join(path, dir_name))
 
 
 def encrypt(text, key):
@@ -162,8 +171,34 @@ def process_secrets(text, mode):
     return re.sub(pattern, repl, text, flags=re.DOTALL)
 
 
-    def get_embedded_vector(text):
-        pass
+def _get_embedded_vector(text):
+    client = openai.Client(api_key=config.api_key)
+    response = client.embeddings.create(
+        input=text,
+        model="text-embedding-3-large"
+    )
+    vec = response.data[0].embedding
+    return np.array(vec, dtype=np.float32)
+
+
+def save_embedded_vector_from_diary(dir_name):
+    # read the diary, embed the text, and save the vector
+    content = read_diary(dir_name)
+    content = process_secrets(content, "decrypt")
+    vec = _get_embedded_vector(content)
+    np.save(os.path.join(dir_name, "vec.npy"), vec)
+    return vec
+
+
+def get_distance(v1, v2):
+    return np.linalg.norm(v1 - v2)
+
+
+def update_all_vectors(path, force=False):
+    for dir_name in load_all_dir_names(path):
+        if os.path.exists(os.path.join(path, dir_name, "vec.npy")) and not force:
+            continue
+        save_embedded_vector_from_diary(os.path.join(path, dir_name))
 
 
 if __name__ == '__main__':
@@ -175,12 +210,5 @@ if __name__ == '__main__':
     # # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-07-12-14-33-15\diary.txt", "w", encoding="utf-8") as file:
     #     file.write(content)
     # print(content)
-    from openai import OpenAI
-    client = OpenAI(api_key=config.api_key)
-
-    response = client.embeddings.create(
-        input="Your text string goes here",
-        model="text-embedding-3-small"
-    )
-
-    print(response.data[0].embedding)
+    path = r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-09-25-11-01-27"
+    save_embedded_vector_from_diary(path)
