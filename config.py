@@ -15,6 +15,8 @@ else:
     text_app = "mousepad"
     model = "gpt-4o"
 
+api_key = os.environ.get("OPENAI_API_KEY")
+
 
 # 解释一下token_limit这个变量：
 # 每一次发送请求GPT给评价的时候，这个程序都会加载之前的一部分日记，好让GPT有上下文，能看懂当前的日记写的是什么。

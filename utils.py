@@ -159,17 +159,28 @@ def process_secrets(text, mode):
             return f"<secret>{decrypt(match.group(1), key)}</secret>"
         else:
             raise ValueError(f"mode {mode} is not supported")
-        
-    
     return re.sub(pattern, repl, text, flags=re.DOTALL)
 
 
+    def get_embedded_vector(text):
+        pass
+
+
 if __name__ == '__main__':
-    with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-06-24-16-31-00\diary.txt", "r", encoding="utf-8") as file:
+    # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-06-24-16-31-00\diary.txt", "r", encoding="utf-8") as file:
     # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-07-12-14-33-15\diary.txt", "r", encoding="utf-8") as file:
-        content = file.read()
-    content = process_secrets(content, "encrypt")
+    #     content = file.read()
+    # content = process_secrets(content, "encrypt")
     # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-06-24-16-31-00\diary.txt", "w", encoding="utf-8") as file:
     # # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-07-12-14-33-15\diary.txt", "w", encoding="utf-8") as file:
     #     file.write(content)
-    print(content)
+    # print(content)
+    from openai import OpenAI
+    client = OpenAI(api_key=config.api_key)
+
+    response = client.embeddings.create(
+        input="Your text string goes here",
+        model="text-embedding-3-small"
+    )
+
+    print(response.data[0].embedding)
