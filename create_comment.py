@@ -259,8 +259,8 @@ if __name__ == '__main__':
     if need_comment:
         print("requesting for the response...")
         t0 = time.time()
-        # comment = request_comment(messages)
-        # save_comment(comment)
+        comment = request_comment(messages)
+        save_comment(comment)
         t1 = time.time()
         print(f"Comment added. Time cost: {int(t1 - t0)} sec. Please check it in `{CURRENT_DIARY_DIR}`.")
     else:
