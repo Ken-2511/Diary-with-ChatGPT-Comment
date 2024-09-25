@@ -8,10 +8,10 @@ import time
 import datetime
 import count_token
 from openai import OpenAI
-from config import diary_dir, model, token_limit
+from config import diary_dir, model, token_limit, api_key
 import utils
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+client = OpenAI(api_key=api_key)
 SYS_PROMPT_NAME = "sys_prompt.txt"
 DIARY_PROMPT_NAME = "diary_prompt.txt"
 CURRENT_DIARY_DIR = ""  # This is for saving comment files
