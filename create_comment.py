@@ -233,6 +233,9 @@ def encrypt_last_diary():
     """encrypt the last diary"""
     # get the path of the last diary
     diary_path = utils.load_all_dir_names(diary_dir)[-1]
+    # if there is a comment, then do not encrypt the diary
+    if check_comment(os.path.join(diary_dir, diary_path)):
+        return
     diary_path = os.path.join(diary_dir, diary_path, "diary.txt")
     # read the diary
     with open(diary_path, "r", encoding="utf-8") as file:
