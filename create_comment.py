@@ -7,9 +7,6 @@ import math
 import time
 import json
 import datetime
-
-from isort.profiles import pycharm
-
 import count_token
 import numpy as np
 from openai import OpenAI
