@@ -4,6 +4,8 @@ import os
 import re
 import jieba
 import openai
+from pyexpat.errors import messages
+
 import config
 import base64
 import unicodedata
@@ -185,9 +187,40 @@ def save_embedded_vector_from_diary(dir_name):
     # read the diary, embed the text, and save the vector
     content = read_diary(dir_name)
     content = process_secrets(content, "decrypt")
+    # if there is a title, then add the title to the content
+    if os.path.exists(os.path.join(dir_name, "title.txt")):
+        with open(os.path.join(dir_name, "title.txt"), "r", encoding="utf-8") as file:
+            title = file.read()
+        content = title + "\n" + content
     vec = _get_embedded_vector(content)
     np.save(os.path.join(dir_name, "vec.npy"), vec)
     return vec
+
+
+def save_title_from_diary(dir_name):
+    # read the diary, get the title, and save the title
+    content = read_diary(dir_name)
+    # intentionally do not decrypt the secrets
+    # content = process_secrets(content, "decrypt")
+    # get the title
+    client = openai.Client(api_key=config.api_key)
+    response = client.chat.completions.create(
+        model=config.model,
+        messages=[
+            {
+                "role": "system",
+                "content": "Generate a title for the diary as plain text only. Do not add quotation marks or any additional text."
+            },
+            {
+                "role": "user",
+                "content": content
+            }
+        ]
+    )
+    title = response.choices[0].message.content
+    with open(os.path.join(dir_name, "title.txt"), "w", encoding="utf-8") as file:
+        file.write(title)
+    return title
 
 
 def get_distance(v1, v2):
@@ -201,6 +234,14 @@ def update_all_vectors(path, force=False):
         save_embedded_vector_from_diary(os.path.join(path, dir_name))
 
 
+def update_all_titles(path, force=False):
+    for dir_name in load_all_dir_names(path):
+        if os.path.exists(os.path.join(path, dir_name, "title.txt")) and not force:
+            continue
+        title = save_title_from_diary(os.path.join(path, dir_name))
+        print(f"Title of {dir_name}: {title}")
+
+
 if __name__ == '__main__':
     # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-06-24-16-31-00\diary.txt", "r", encoding="utf-8") as file:
     # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-07-12-14-33-15\diary.txt", "r", encoding="utf-8") as file:
@@ -210,5 +251,5 @@ if __name__ == '__main__':
     # # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-07-12-14-33-15\diary.txt", "w", encoding="utf-8") as file:
     #     file.write(content)
     # print(content)
-    path = r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-09-25-11-01-27"
-    save_embedded_vector_from_diary(path)
+    update_all_titles(config.diary_dir, force=True)
+    update_all_vectors(config.diary_dir, force=True)
