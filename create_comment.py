@@ -19,6 +19,9 @@ SYS_PROMPT_NAME = "sys_prompt.txt"
 DIARY_PROMPT_NAME = "diary_prompt.txt"
 CURRENT_DIARY_DIR = ""  # This is for saving comment files
 need_comment = True
+_token_limit = input("Please input the token limit: ")
+if _token_limit != "":
+    token_limit = int(_token_limit)
 
 
 # noinspection PyTypeChecker
@@ -125,6 +128,7 @@ def get_content_rela_scores(path) -> tuple:
                     "relativity_score": float,
                     "content": str}, ...],  <- all diaries
                     {"dir_name": str, "content": str})  <- last diary"""
+    utils.update_all_titles(path)
     utils.update_all_vectors(path)
     # load diary names
     diary_names = utils.load_all_dir_names(path)
@@ -262,7 +266,7 @@ if __name__ == '__main__':
         comment = request_comment(messages)
         save_comment(comment)
         t1 = time.time()
-        print(f"Comment added. Time cost: {int(t1 - t0)} sec. Please check it in `{CURRENT_DIARY_DIR}`.")
+        print(f"Comment added. Time cost: {t1 - t0:.2f} sec. Please check it in `{CURRENT_DIARY_DIR}`.")
     else:
         print("No comment has been added.")
     input("Press enter to continue...")
