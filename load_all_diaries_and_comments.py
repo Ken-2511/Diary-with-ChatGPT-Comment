@@ -17,13 +17,13 @@ def load_all():
             # for each dir, read the diary
             file.write(get_time_str(dir_name) + '\n')
             diary = utils.read_diary(os.path.join(diary_dir, dir_name))
-            diary = utils.remove_blank_lines(diary)
+            # diary = utils.remove_blank_lines(diary)
             file.write(diary + '\n\n')
             # read the comment
             if not os.path.exists(os.path.join(diary_dir, dir_name, "comment.txt")):
                 continue
             comment = utils.read_comment(os.path.join(diary_dir, dir_name))
-            comment = utils.remove_blank_lines(comment)
+            # comment = utils.remove_blank_lines(comment)
             file.write(comment + '\n\n\n')
 
 

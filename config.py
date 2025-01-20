@@ -3,10 +3,7 @@ import os
 __all__ = ["diary_dir", "text_app", "model", "api_key", "token_limit"]
 
 # check whether it is windows or linux
-if os.name == 'nt':
-    is_windows = True
-else:
-    is_windows = False
+is_windows = os.name == 'nt'
 
 if is_windows:
     diary_dir = r"C:\Users\IWMAI\OneDrive\Personal-Diaries"

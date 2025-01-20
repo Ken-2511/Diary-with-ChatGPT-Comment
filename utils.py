@@ -251,5 +251,5 @@ if __name__ == '__main__':
     # # with open(r"C:\Users\IWMAI\OneDrive\Personal-Diaries\2024-07-12-14-33-15\diary.txt", "w", encoding="utf-8") as file:
     #     file.write(content)
     # print(content)
-    update_all_titles(config.diary_dir, force=True)
-    update_all_vectors(config.diary_dir, force=True)
+    update_all_titles(config.diary_dir)
+    update_all_vectors(config.diary_dir)
