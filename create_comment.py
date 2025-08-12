@@ -13,6 +13,7 @@ from openai import OpenAI
 from config import diary_dir, model, token_limit, api_key
 import utils
 from utils import check_comment
+import re
 
 client = OpenAI(api_key=api_key)
 SYS_PROMPT_NAME = "sys_prompt.txt"
@@ -219,11 +220,56 @@ def load_messages():
     return messages
 
 
+def _is_reasoning_model(model_name: str) -> bool:
+    name = (model_name or "").lower()
+    return name.startswith("o") or ("reason" in name)
+
+
+def _extract_tag_block(text: str, tag: str) -> str:
+    pattern = re.compile(rf"<{tag}>([\s\S]*?)</{tag}>", re.IGNORECASE)
+    match = pattern.search(text or "")
+    return match.group(1).strip() if match else ""
+
+
+def _save_thoughts(thoughts_text: str, context_header: str = ""):
+    if not thoughts_text:
+        return
+    try:
+        with open("thoughts.txt", "a", encoding="utf-8") as f:
+            if context_header:
+                f.write(context_header + "\n")
+            f.write(thoughts_text.rstrip() + "\n\n")
+    except Exception as e:
+        print(f"Warning: failed to save thoughts.txt: {e}")
+
+
 def request_comment(messages) -> str:
     """request ChatGPT to add a comment to my diary"""
+    call_messages = list(messages)
+    if _is_reasoning_model(model):
+        call_messages = list(messages) + [
+            {
+                "role": "system",
+                "content": (
+                    "你是一个支持思考的模型。请在内部先进行详细推理，但不要在最终回答中暴露推理过程。\n"
+                    "- 将你的完整思考过程输出在 <thoughts> 与 </thoughts> 标签中。\n"
+                    "- 将最终给用户看的评论输出在 <final> 与 </final> 标签中。\n"
+                    "- 最终回答只包含 <final> 部分的内容。"
+                )
+            }
+        ]
     # request
-    response = client.chat.completions.create(model=model, messages=messages)
-    content = response.choices[0].message.content
+    response = client.chat.completions.create(model=model, messages=call_messages)
+    content = response.choices[0].message.content or ""
+
+    if _is_reasoning_model(model):
+        # Extract and persist thoughts; return only final
+        thoughts = _extract_tag_block(content, "thoughts")
+        final_text = _extract_tag_block(content, "final") or content
+        header = f"[{datetime.datetime.now().isoformat()}] source={CURRENT_DIARY_DIR or 'unknown'} model={model}"
+        _save_thoughts(thoughts, header)
+        return final_text
+
     return content
 
 

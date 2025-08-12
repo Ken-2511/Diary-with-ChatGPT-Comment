@@ -9,6 +9,7 @@ This project integrates ChatGPT with your personal diary entries to provide AI-d
 - **Content Analysis**: Use built-in tools for token counting, word frequency analysis, and relativity scoring to explore patterns and themes in your writing.
 - **Diary Encryption**: Secure your diary entries with encryption features.
 - **Customizable AI Prompts**: Modify system prompts to tailor ChatGPT’s feedback to your preferences.
+- **Reasoning models (o-series)**: You can set `model` in `config.py` to an OpenAI reasoning-capable model (e.g., `o4-mini`, `o3-mini`). When a reasoning model is used, the app will ask the model to emit a `<thoughts>...</thoughts>` block and a `<final>...</final>` block. The `<thoughts>` content is saved to `thoughts.txt` in the project root, and only the `<final>` content is stored as the diary comment.
 
 ## Prerequisites
 - Python 3.x

@@ -3,7 +3,19 @@ from idlelib.iomenu import encoding
 import tiktoken
 from config import model
 
-encoding = tiktoken.encoding_for_model(model)
+
+def _get_encoding_for_model(model_name: str):
+    try:
+        return tiktoken.encoding_for_model(model_name)
+    except Exception:
+        # Fallback heuristics for new/unknown models
+        lower = (model_name or "").lower()
+        if lower.startswith("o"):
+            return tiktoken.get_encoding("o200k_base")
+        return tiktoken.get_encoding("cl100k_base")
+
+
+encoding = _get_encoding_for_model(model)
 
 
 def num_tokens_from_list(messages: list):
@@ -30,6 +42,9 @@ def num_tokens_from_messages(messages: list):
     for message in messages:
         num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
         for key, value in message.items():
+            # defensively handle non-string values
+            if not isinstance(value, str):
+                continue
             num_tokens += len(encoding.encode(value))
             if key == "name":  # if there's a name, the role is omitted
                 num_tokens += -1  # role is always required and always 1 token
