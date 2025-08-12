@@ -3,3 +3,4 @@ messages.txt
 a.out
 test.py
 encrypt_key
+__pycache__

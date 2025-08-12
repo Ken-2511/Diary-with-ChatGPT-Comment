@@ -20,6 +20,7 @@ SYS_PROMPT_NAME = "sys_prompt.txt"
 DIARY_PROMPT_NAME = "diary_prompt.txt"
 CURRENT_DIARY_DIR = ""  # This is for saving comment files
 need_comment = True
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 _token_limit = input("Please input the token limit: ")
 if _token_limit != "":
     token_limit = int(_token_limit)
@@ -205,7 +206,7 @@ def load_messages():
     messages = sys_prompt + messages + diary_prompt + last_diary_prompt
 
     # save the messages
-    with open("messages.txt", "w", encoding="utf-8") as file:
+    with open(os.path.join(PROJECT_ROOT, "messages.txt"), "w", encoding="utf-8") as file:
         # noinspection PyTypeChecker
         json.dump(messages, file, ensure_ascii=False, indent=4)
         # for message in messages:
