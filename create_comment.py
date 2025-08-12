@@ -26,24 +26,6 @@ if _token_limit != "":
     token_limit = int(_token_limit)
 
 
-# noinspection PyTypeChecker
-def get_same_word_score(words1: str, words2: str) -> float:
-    # convert the words1 to list and convert the words2 to a dictionary
-    words1 = [line.split() for line in words1.split('\n') if line]
-    for word in words1:
-        word[1] = int(word[1])
-    words2 = [line.split() for line in words2.split('\n') if line]
-    for word in words2:
-        word[1] = int(word[1])
-    words2 = dict(words2)
-    # calculate the score
-    same_word_score = 1
-    for word, count in words1:
-        if word in words2:
-            same_word_score += count * words2[word]
-    return same_word_score
-
-
 def get_length_score(diary_dir):
     content = utils.read_diary(diary_dir)
     length = len(content) + 1
@@ -58,29 +40,6 @@ def get_date_score(last_diary_dir, current_diary_dir):
     delta_time = last_date - current_date
     days = delta_time.days + 1
     return days
-
-
-def _clip_messages(messages):
-    # deprecated
-    """since the chatGPT has a maximum token limit,
-    we have to clip the messages to ensure that it is within the context window.
-    Also, we should leave a ~800 token free space for GPT to generate their comment."""
-    # get the relativity scores
-    scores = _get_rela_scores(diary_dir)
-    scores.sort(key=lambda x: x[1], reverse=True)
-    # if num_tokens exceeds 7200, then clip, else don't clip
-    while count_token.num_tokens_from_messages(messages, model) > token_limit:
-        # the first one is system prompt
-        # the second last is system prompt
-        # the last one is needed diary
-        choice = scores.pop(-1)
-        dir_name, score = choice
-        for m in messages:
-            if m["date"] == dir_name:
-                messages.remove(m)
-                break
-        else:
-            assert False
 
 
 def clip_diaries(diaries):
@@ -98,31 +57,6 @@ def clip_diaries(diaries):
     return new_diaries
 
 
-def _get_rela_scores(path) -> list:
-    # deprecated
-    """get the relativity scores of the diaries in the path
-    the last diary is the one to be compared with
-    return type: [[dir_name, relativity_score], ...]"""
-    utils._update_all_meaningful_words(diary_dir)
-    diaries = utils.load_all_dir_names(path)
-    last_diary = diaries.pop(-1)
-    # load the last diary's words statistics
-    with open(os.path.join(path, last_diary, "words.txt"), "r", encoding="utf-8") as file:
-        last_diary_words = file.read()
-    # start to calculate all the relativity scores
-    rela_scores = []
-    for diary in diaries:
-        with open(os.path.join(path, diary, "words.txt"), "r", encoding="utf-8") as file:
-            content_words = file.read()
-        sw_score = 0.5 * get_same_word_score(content_words, last_diary_words)
-        # noinspection PyTypeChecker
-        l_score = -1 * math.pow(get_length_score(diary["dir_name"]), 0.5)
-        d_score = -1 * math.pow(get_date_score(last_diary, diary), 0.8)
-        total_score = sw_score + l_score + d_score
-        rela_scores.append([diary, total_score])
-    return rela_scores
-
-
 def get_content_rela_scores(path) -> tuple:
     """get the content and the relativity scores of the diaries in the path
     the last diary is the one to be compared with
@@ -134,28 +68,29 @@ def get_content_rela_scores(path) -> tuple:
     utils.update_all_vectors(path)
     # load diary names
     diary_names = utils.load_all_dir_names(path)
-    diaries = [{"dir_name": diary_n} for diary_n in diary_names]
+    diaries = [{"dir_name": dn} for dn in diary_names]
     # load diary contents
-    for diary in diaries:
-        content = utils.read_diary(os.path.join(path, diary["dir_name"]))
+    for d in diaries:
+        content = utils.read_diary(os.path.join(path, d["dir_name"]))
         content = utils.process_secrets(content, "decrypt")
-        diary["content"] = content
+        d["content"] = content
     # load the diary vectors
-    for diary in diaries:
-        diary["vector"] = np.load(os.path.join(path, diary["dir_name"], "vec.npy"))
+    for d in diaries:
+        d["vector"] = np.load(os.path.join(path, d["dir_name"], "vec.npy"))
     # get the last diary
     last_diary = diaries.pop(-1)
     # start to calculate all the relativity scores
-    for diary in diaries:
-        v_score = -20 * math.log2(utils.get_distance(last_diary["vector"], diary["vector"] + 1e-9))
-        l_score = -1 * math.pow(get_length_score(os.path.join(diary_dir, diary["dir_name"])), 0.3)
-        d_score = -1 * math.pow(get_date_score(last_diary["dir_name"], diary["dir_name"]), 0.5)
+    for d in diaries:
+        v_score = -20 * math.log2(utils.get_distance(last_diary["vector"], d["vector"] + 1e-9))
+        l_score = -1 * math.pow(get_length_score(os.path.join(diary_dir, d["dir_name"])), 0.3)
+        d_score = -1 * math.pow(get_date_score(last_diary["dir_name"], d["dir_name"]), 0.5)
         total_score = v_score + l_score + d_score
-        diary["relativity_score"] = total_score
+        d["relativity_score"] = total_score
     # get the time_strs
-    for diary in diaries:
-        diary["time_str"] = get_time_str(diary["dir_name"])
-        diary["content"] = diary["time_str"] + "\n\n" + diary["content"]
+    for d in diaries:
+        d["content"] = utils.get_time_str(d["dir_name"]) + "\n\n" + d["content"]
+    last_diary["content"] = utils.get_time_str(last_diary["dir_name"]) + "\n\n" + last_diary["content"]
+
     return diaries, last_diary
 
 
@@ -164,11 +99,6 @@ def regulate_messages(messages):
     for i, m in enumerate(messages):
         m = {"role": m["role"], "content": m["content"]}
         messages[i] = m
-
-
-def get_time_str(dir_name):
-    y, mon, d, h, m, s = [int(i) for i in dir_name.split('-')]
-    return f"(Date: {y}.{mon}.{d}, time: {h}:{m})"
 
 
 def load_messages():

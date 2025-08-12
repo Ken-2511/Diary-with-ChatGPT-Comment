@@ -8,11 +8,11 @@ is_windows = os.name == 'nt'
 if is_windows:
     diary_dir = r"C:\Users\IWMAI\OneDrive\Personal-Diaries"
     text_app = "notepad"
-    model = "o3"
+    model = "gpt-5"
 else:
     diary_dir = "/home/iwmain/Documents/diaries"
     text_app = "mousepad"
-    model = "gpt-4o"
+    model = "gpt-5"
 
 api_key = os.environ.get("OPENAI_API_KEY")
 
